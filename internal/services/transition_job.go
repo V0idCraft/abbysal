@@ -5,20 +5,21 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/V0idCraft/abyssal/internal/chain"
 	"github.com/V0idCraft/abyssal/internal/models"
 	"github.com/andygrunwald/go-jira"
 )
 
-var _ models.JobExecutor = (*transitionIssueJobExecutor)(nil)
+var _ chain.Executor = (*transitionIssueJobExecutor)(nil)
 
 type transitionIssueJobExecutor struct {
 	jobBaseExecutor
 }
 
 func (c *transitionIssueJobExecutor) Execute(ctx context.Context) error {
-	if c.kind == models.ExecutorKindTransition {
+	if c.GetKind() == models.ExecutorKindTransition {
 
-		metadata, ok := c.Metadata.(models.TransitionIssueMetadata)
+		metadata, ok := c.GetMetadata().(models.TransitionIssueMetadata)
 
 		if !ok {
 			return fmt.Errorf("metadata is not of type TransitionIssueMetadata")
@@ -71,15 +72,12 @@ func (c *transitionIssueJobExecutor) Execute(ctx context.Context) error {
 
 }
 
-func (l *transitionIssueJobExecutor) GetKind() models.ExecutorKind {
-	return models.ExecutorKindTransition
-}
-
-func NewTransitionIssueJobExecutor(client *jira.Client, logger *slog.Logger) *transitionIssueJobExecutor {
+func NewTransitionIssueJobExecutor(job models.Job, client *jira.Client, logger *slog.Logger) *transitionIssueJobExecutor {
 	return &transitionIssueJobExecutor{
 		jobBaseExecutor: jobBaseExecutor{
 			client: client,
 			logger: logger,
+			Job:    job,
 		},
 	}
 }

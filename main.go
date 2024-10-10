@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/V0idCraft/abyssal/internal/config"
 	"github.com/V0idCraft/abyssal/internal/factories"
 	"github.com/V0idCraft/abyssal/internal/models"
 	"github.com/V0idCraft/abyssal/internal/services"
@@ -51,16 +52,21 @@ func getDateRange() []time.Time {
 }
 
 func main() {
-
-	tp := jira.BasicAuthTransport{
-		Username: "",
-		Password: "",
-	}
-
-	client, err := jira.NewClient(tp.Client(), "")
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
+	cfg, err := config.InitConfig()
+
+	if err != nil {
+		panic(err)
+	}
+
+	tp := jira.BasicAuthTransport{
+		Username: cfg.JiraUsername,
+		Password: cfg.JiraToken,
+	}
+
+	client, err := jira.NewClient(tp.Client(), cfg.JiraHost)
 
 	if err != nil {
 		panic(err)
@@ -81,37 +87,46 @@ func main() {
 
 	summaryQuery := fmt.Sprintf("summary ~ %s", strings.Join(summaries, " or summary ~ "))
 
-	listExecutor := factories.NewExecutorFactory(models.ExecutorKindList, client, logger)
-	listExecutor.SetTitle("List issues")
-	listExecutor.SetDescription("List issues from the Jira API")
-	listExecutor.SetMetadata(models.ListIssueMetadata{
+	listJob := models.NewJob(models.ExecutorKindList)
+	listJob.SetTitle("List issues")
+	listJob.SetDescription("List issues from the Jira API")
+	listJob.SetMetadata(models.ListIssueMetadata{
 		Jql: fmt.Sprintf("project = 'NW' AND assignee = currentUser() and (%s) AND status in ('To Do')", summaryQuery),
 	})
 
-	transitionJob := factories.NewExecutorFactory(models.ExecutorKindTransition, client, logger)
+	listExecutor := factories.NewExecutorFactory(listJob, client, logger)
+
+	transitionJob := models.NewJob(models.ExecutorKindTransition)
 	transitionJob.SetTitle("Transition issues")
 	transitionJob.SetDescription("Transition issues from the Jira API")
 	transitionJob.SetMetadata(models.TransitionIssueMetadata{
 		TransitionTo: "In Progress",
 	})
 
-	workLogJob := factories.NewExecutorFactory(models.ExecutorKindWorkLog, client, logger)
+	transitionExecutor := factories.NewExecutorFactory(transitionJob, client, logger)
+
+	workLogJob := models.NewJob(models.ExecutorKindWorkLog)
 	workLogJob.SetTitle("WorkLog issues")
 	workLogJob.SetDescription("WorkLog issues from the Jira API")
 	workLogJob.SetMetadata(models.WorkLogIssueMetadata{
 		TimeSpent: "1d",
 	})
 
-	transitionJob2 := factories.NewExecutorFactory(models.ExecutorKindTransition, client, logger)
-	transitionJob2.SetTitle("Transition issues")
-	transitionJob2.SetDescription("Transition issues from the Jira API")
-	transitionJob2.SetMetadata(models.TransitionIssueMetadata{
+	workExecutor := factories.NewExecutorFactory(workLogJob, client, logger)
+
+	transitionDoneJob := models.NewJob(models.ExecutorKindTransition)
+	transitionDoneJob.SetTitle("Transition issues")
+	transitionDoneJob.SetDescription("Transition issues from the Jira API")
+	transitionDoneJob.SetMetadata(models.TransitionIssueMetadata{
 		TransitionTo: "Done",
 	})
 
+	transitionDoneExecutor := factories.NewExecutorFactory(transitionDoneJob, client, logger)
+
 	pipeline.Add(listExecutor)
-	// pipeline.Add(transitionJob)
-	// pipeline.Add(workLogJob)
+	pipeline.Add(transitionExecutor)
+	pipeline.Add(workExecutor)
+	pipeline.Add(transitionDoneExecutor)
 
 	pipelineSvc := services.NewPipelineService(logger)
 

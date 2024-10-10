@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/V0idCraft/abyssal/internal/chain"
 	"github.com/V0idCraft/abyssal/internal/models"
 	"github.com/andygrunwald/go-jira"
 )
 
-var _ models.JobExecutor = (*workLogIssueJob)(nil)
+var _ chain.Executor = (*workLogIssueJob)(nil)
 
 type workLogIssueJob struct {
 	jobBaseExecutor
@@ -17,7 +18,7 @@ type workLogIssueJob struct {
 
 func (w *workLogIssueJob) Execute(ctx context.Context) error {
 
-	if w.kind == models.ExecutorKindWorkLog {
+	if w.GetKind() == models.ExecutorKindWorkLog {
 		issues, ok := ctx.Value(models.CtxDataKeyListIssueData).(*models.ListIssueData)
 
 		if !ok {
@@ -26,7 +27,7 @@ func (w *workLogIssueJob) Execute(ctx context.Context) error {
 
 		issueKey := issues.Issues[0]
 
-		metadata := w.Metadata.(models.WorkLogIssueMetadata)
+		metadata := w.GetMetadata().(models.WorkLogIssueMetadata)
 
 		worklog := jira.WorklogRecord{
 			Comment:   "Worklog from the abyssal CLI",
@@ -46,15 +47,13 @@ func (w *workLogIssueJob) Execute(ctx context.Context) error {
 	return nil
 
 }
-func (l *workLogIssueJob) GetKind() models.ExecutorKind {
-	return models.ExecutorKindWorkLog
-}
 
-func NewWorkLogIssueExecutor(client *jira.Client, logger *slog.Logger) *workLogIssueJob {
+func NewWorkLogIssueExecutor(job models.Job, client *jira.Client, logger *slog.Logger) *workLogIssueJob {
 	return &workLogIssueJob{
 		jobBaseExecutor: jobBaseExecutor{
 			client: client,
 			logger: logger,
+			Job:    job,
 		},
 	}
 }

@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/V0idCraft/abyssal/internal/chain"
 	"github.com/V0idCraft/abyssal/internal/models"
 	"github.com/andygrunwald/go-jira"
 )
 
-var _ models.JobExecutor = (*listIssueExecutor)(nil)
+var _ chain.Executor = (*listIssueExecutor)(nil)
 
 type listIssueExecutor struct {
 	jobBaseExecutor
@@ -25,7 +26,7 @@ func (l *listIssueExecutor) Execute(ctx context.Context) error {
 	}
 
 	l.logger.Info("Executing list issue job")
-	metadata, ok := l.Metadata.(models.ListIssueMetadata)
+	metadata, ok := l.GetMetadata().(models.ListIssueMetadata)
 
 	if !ok {
 		return fmt.Errorf("metadata is not of type ListIssueMetadata")
@@ -59,15 +60,12 @@ func (l *listIssueExecutor) Execute(ctx context.Context) error {
 
 }
 
-func (l *listIssueExecutor) GetKind() models.ExecutorKind {
-	return models.ExecutorKindList
-}
-
-func NewListIssueExecutor(client *jira.Client, logger *slog.Logger) *listIssueExecutor {
+func NewListIssueExecutor(job models.Job, client *jira.Client, logger *slog.Logger) *listIssueExecutor {
 	return &listIssueExecutor{
 		jobBaseExecutor: jobBaseExecutor{
 			client: client,
 			logger: logger,
+			Job:    job,
 		},
 	}
 }

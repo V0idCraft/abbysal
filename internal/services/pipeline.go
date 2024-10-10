@@ -29,6 +29,7 @@ func (s *PipelineService) Run(ctx context.Context, pipeline *models.Pipeline) er
 	for i := 0; i < len(jobs)-1; i++ {
 		jobs[i].SetNext(jobs[i+1])
 	}
+
 	s.logger.Info("Executing Pipeline", slog.String("ID", pipeline.ID), slog.String("Name", pipeline.Title))
 	err := jobs[0].Execute(ctx)
 
